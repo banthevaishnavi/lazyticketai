@@ -1,0 +1,40 @@
+# Ollama + Gemma in Docker. The Streamlit app runs on the host and calls http://127.0.0.1:11434.
+#   docker compose up -d                 # start Ollama and pull the model (first pull is a few GB)
+#   docker compose logs -f ollama-pull   # watch download progress
+# Model: set OLLAMA_MODEL in .env (default gemma3:4b).
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: lazyticket-ollama
+    ports:
+      - "127.0.0.1:11434:11434"   # local only - not exposed to your network
+    volumes:
+      - ollama_models:/root/.ollama  # models persist across restarts
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    # NVIDIA GPU (optional): uncomment if Docker Desktop has GPU support enabled.
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+
+  ollama-pull:
+    image: ollama/ollama:latest
+    container_name: lazyticket-ollama-pull
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+    entrypoint: ["ollama", "pull", "${OLLAMA_MODEL:-gemma3:4b}"]
+    restart: "no"
+
+volumes:
+  ollama_models:
